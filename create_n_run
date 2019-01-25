@@ -1,0 +1,68 @@
+#!/bin/bash
+
+#THIS IS A NEW BASH CODE FOR AUTOMATICALLY GENERATE AN ISOTHERM
+
+echo "WHAT IS YOUR MOLECULE???"
+read MY_MOLECULE
+echo "WHAT IS YOUR MOF???"
+read MOF_ID
+# AFTER READING MOF_ID, RUN yamil_uc.py TO GET THE RIGHT UNITCELL
+cd /home/zlc6394/unitcell/
+python yamil_uc.py
+cd -
+echo "WHAT UNIT CELL WOULD YOU LIKE???"
+echo "ENTER ONE AT A TIME."
+read unitcell_x
+read unitcell_y
+read unitcell_z
+echo "CHARGE???(y/n)"
+read IS_CHARGE
+
+if [ $IS_CHARGE == 'y' ]; then
+	mkdir $MY_MOLECULE-$MOF_ID-CHARGE
+	export SIM_DIR=$MY_MOLECULE-$MOF_ID-CHARGE/ 
+else
+	if [ ! -d $MY_MOLECULE-$MOF_ID/ ]; then
+		mkdir $MY_MOLECULE-$MOF_ID
+		export SIM_DIR=$MY_MOLECULE-$MOF_ID/
+	else
+		export SIM_DIR=$MY_MOLECULE-$MOF_ID/
+
+	fi
+fi
+
+cd $SIM_DIR
+# HERE INPUT ALL THE PRESSURES 
+for i in {1,2,3,4,5,6,7,8,9,10,20,30,40}
+#FOR EACH PRESSURE IT WILL GENERATE A SEPARATE SIMULATION 
+do cp -r /home/zlc6394/input_and_job pressure-$i-bar
+
+cd pressure-$i-bar
+
+#FIND AND REPLACE THE PRESSURE INPUT LINE
+sed -i 's/.*ExternalPressure.*/ExternalPressure '$i'.0e5/g' simulation.input
+
+#FIND AND REPLACE THE MOF LINE
+sed -i 's/.*FrameworkName.*/FrameworkName '$MOF_ID'/g' simulation.input
+#FIND AND REPLACE UNITCELL LINE
+sed -i 's/.*UnitCells.*/UnitCells '$unitcell_x' '$unitcell_y' '$unitcell_z'/g' simulation.input
+#FIND AND REPLACE THE MOLECULE NAME
+sed -i 's/methane/'$MY_MOLECULE'/g' simulation.input
+
+if [ $IS_CHARGE == 'n' ];then
+sed -i 's/.*Charge.*/  /g' simulation.input
+rm pseudo_atoms.def
+fi
+
+#THEN, WE CAN SUBMIT THE JOB, BUT FIRST CHANGE THE bsub.job FILE
+MY_QUEUE='short' #DEFAULT SUBMISSION TO short QUEUE ON QUEST
+sed -i 's/.*#MOAB -q.*/#MOAB -q '$MY_QUEUE'/g' bsub.job
+sed -i 's/.*#MOAB -1.*/#MOAB -1 walltime=04:00:00/g' bsub.job
+if [ $i > 10 ]; then
+sed -i 's/.*#MOAB -q.*/#MOAB -q long/g' bsub.job
+sed -i 's/.*#MOAB -1.*/#MOAB -1 walltime=168:00:00/g' bsub.job
+fi
+cd ..
+
+
+done
