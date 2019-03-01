@@ -1,0 +1,53 @@
+#!/bin/bash
+
+#THIS IS A NEW BASH CODE FOR AUTOMATICALLY GENERATE AN ISOTHERM
+if [ -f file.txt ]; then
+        rm file.txt
+fi
+cifdir=/projects/p30762/RASPA-2.0/share/raspa/structures/cif
+cd $cifdir
+
+# Count the number of directories in the current folder
+count=$(find . -maxdepth 1 -type d | wc -l)
+count=$((count - 1))
+echo $count
+
+# Loop through every directory in current dir
+for d in */ ; 
+do echo $d
+cd $d
+cp Output/System_0/outp* Output/System_0/outlet.txt
+# EXTRACT MOF NAME
+
+mof=$(grep "Framework name: " Output/System_0/outlet.txt)
+mof=${mof##Framework name:}
+# EXTRACT TEMPERATURE AND PRESSURE
+temp=$(grep "External temperature: " Output/System_0/outlet.txt)
+temp=${temp##External temperature: }
+temp=${temp%[*}
+
+
+pres=$(grep "External Pressure: " Output/System_0/outlet.txt)
+pres=${pres##External Pressure: }
+pres=${pres%[*}
+# ADSORPTION VALUE (molecule/unitcell)
+
+adsorption=$(grep "Average       " Output/System_0/outlet.txt | tail -1)
+adsorption=${adsorption#*Average                  } #Extract all after Average
+adsorption=${adsorption%[*} #Extract all before [
+# EXTRACT Absolute adsorption and fluctuation out
+abs=${adsorption%+/-*} #Everything before +/-
+fluc=${adsorption#*+/-} #Everything after +/-
+#echo $abs$fluc
+# COMBINE VARIABLES INTO 1 STRING
+combin="$mof $temp $pres $abs $fluc"
+
+#combin=$($combin | sed 's/[][]//g')
+#echo $combin
+
+cd $cifdir
+echo "$combin" >> file.txt
+# Finally, remove the folder of that simulation
+#rm -r $d
+done
+

@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# COUNT NUMBER OF FILES WITH extension .cif
+
+rm *.cif
+cd /home/zlc6394/hmofs/GA_MOFs/
+# Copy first 100 cif files in this directory
+destdir=/projects/p30762/RASPA-2.0/share/raspa/structures/cif/
+find . -maxdepth 1 -type f |head -100|xargs cp -t $destdir
+cd $destdir
+count=$(find -maxdepth 1 -name '*.cif' | wc -l)
+echo $count
+
+# RENAME ALL THE hmofs
+for input in $destdir*.cif
+do 
+output=$input
+
+output=${output#*F} #Extract all characters after F
+output=${output#*_} #Then extract all things after the first _
+output=${output%_*} # Remove all the _ left
+output=${output%_*}
+output=${output%_*}
+output=${output%_*}
+output=${output%_*}
+output=${output%_*}
+
+output=$output".cif" #Combine it with its extension
+mv $input $output
+done
+# Run unitcell python code to generate correct unitcell to use
+cp /home/zlc6394/yamil_uc.py $destdir
+python yamil_uc.py

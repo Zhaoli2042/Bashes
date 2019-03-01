@@ -1,0 +1,126 @@
+#!/bin/bash
+
+#THIS IS A NEW BASH CODE FOR AUTOMATICALLY GENERATE AN ISOTHERM
+# READ unitcells.txt
+cifdir=/projects/p30762/RASPA-2.0/share/raspa/structures/cif
+cd $cifdir
+filename=unitcells.txt
+echo $filename
+# READ it line by line
+while IFS='' read -r line || [[ -n "$line" ]]; do
+# Get MOF ID from first element of the line
+MOF_ID=$(echo "$line" | awk '{print $1}')
+# Get the unit cell size from the line
+unitcell_x=$(echo "$line" | awk '{print $2}')
+unitcell_y=$(echo "$line" | awk '{print $3}')
+unitcell_z=$(echo "$line" | awk '{print $4}')
+
+# Cycles of runs
+cycles=3000
+# External Pressure of the system, with unit of bars
+pres=2
+# External Temperature, with unit of K
+temp=298
+# Molecule
+MY_MOLECULE='propane'
+# Create a folder for that mof
+mkdir hMOF-$MOF_ID
+cd hMOF-$MOF_ID
+# Copy input file and submission file to that folder
+cp /home/zlc6394/input_and_job/simulation.input simulation.input
+cp /home/zlc6394/input_and_job/bsub.job bsub.job 
+
+# Substitute unitcell lengths
+sed -i 's/.*UnitCells.*/UnitCells '$unitcell_x' '$unitcell_y' '$unitcell_z'/g' simulation.input
+# Substitute MOF_ID
+sed -i 's/.*FrameworkName.*/FrameworkName '$MOF_ID'/g' simulation.input
+# Substitute Pressure 
+sed -i 's/.*ExternalPressure.*/ExternalPressure '$pres'.0e5/g' simulation.input
+# Substitute Temperature
+sed -i 's/.*ExternalTemperature.*/ExternalTemperature '$temp'/g' simulation.input
+# Substitute the molecule of our simulation
+sed -i 's/methane/'$MY_MOLECULE'/g' simulation.input
+# Substitute cycles, do it to both equil and production
+sed -i 's/.*NumberOfCycles.*/NumberOfCycles '$cycles'/g' simulation.input
+sed -i 's/.*NumberOfInitializationCycles.*/NumberOfInitializationCycles '$cycles'/g' simulation.input
+# Substitute bsub.job file
+sed -i 's/Whatever_methane/'$MY_MOLECULE'_hMOF_'$MOF_ID'/g' bsub.job
+# Sleep between each submission
+sleep 3
+# Finally, submit the bsub.job file
+msub bsub.job
+cd ..
+done < "$filename"
+#MOF_ID=
+# AFTER READING MOF_ID, RUN yamil_uc.py TO GET THE RIGHT UNITCELL
+#read unitcell_x
+#read unitcell_y
+#read unitcell_z
+#echo "CHARGE???(y/n)"
+#read IS_CHARGE
+
+#if [ $IS_CHARGE == 'y' ]; then
+#	mkdir $MY_MOLECULE-$MOF_ID-CHARGE
+#	export SIM_DIR=$MY_MOLECULE-$MOF_ID-CHARGE/ 
+#else
+#	if [ ! -d $MY_MOLECULE-$MOF_ID/ ]; then
+#		mkdir $MY_MOLECULE-$MOF_ID
+#		export SIM_DIR=$MY_MOLECULE-$MOF_ID/
+#	else
+#		export SIM_DIR=$MY_MOLECULE-$MOF_ID/
+#
+#	fi
+#fi
+
+#cd $SIM_DIR
+# HERE INPUT ALL THE PRESSURES 
+#for i in {1,2,3,4,5,6,7,8,9,10,20,30,40}
+#FOR EACH PRESSURE IT WILL GENERATE A SEPARATE SIMULATION 
+#do cp -r /home/zlc6394/input_and_job pressure-$i-bar
+
+#cd pressure-$i-bar
+#if [ $MOF_ID == 'nu1000_chelpg' ]; then
+#rm simulation.input
+#mv NU1000.input simulation.input 
+#fi
+
+#FIND AND REPLACE THE PRESSURE INPUT LINE
+#sed -i 's/.*ExternalPressure.*/ExternalPressure '$i'.0e5/g' simulation.input
+
+#FIND AND REPLACE THE MOF LINE
+#sed -i 's/.*FrameworkName.*/FrameworkName '$MOF_ID'/g' simulation.input
+#FIND AND REPLACE UNITCELL LINE
+#sed -i 's/.*UnitCells.*/UnitCells '$unitcell_x' '$unitcell_y' '$unitcell_z'/g' simulation.input
+#FIND AND REPLACE THE MOLECULE NAME
+#sed -i 's/methane/'$MY_MOLECULE'/g' simulation.input
+
+#if [ $IS_CHARGE == 'n' ];then
+#sed -i 's/.*Charge.*/  /g' simulation.input
+#rm pseudo_atoms.def
+#fi
+
+#THEN, WE CAN SUBMIT THE JOB, BUT FIRST CHANGE THE bsub.job FILE
+#MY_QUEUE='short' 
+#DEFAULT SUBMISSION TO long QUEUE ON QUEST
+#if [ $i -le '20' ]; then
+#echo "qwe"
+#sed -i 's/long/short/g' bsub.job
+#sed -i 's/168:00:00/04:00:00/g' bsub.job
+#fi
+
+#CHANGE THE NAME OF SIMULATION IN bsub.job
+#if [ $IS_CHARGE == 'y' ]; then
+#CHARGE SIMULATIONS ARE REPRESENTED WITH C_
+#sed -i 's/Whatever_methane/C_'$i'_'$MY_MOLECULE'_'$MOF_ID'/g' bsub.job
+#else
+#sed -i 's/Whatever_methane/'$i'_'$MY_MOLECULE'_'$MOF_ID'/g' bsub.job
+#fi
+
+#FINALLY, SUBMIT THE JOB
+#msub bsub.job
+
+# CD BACK TO SIM_DIR
+#cd ..
+
+
+#done
