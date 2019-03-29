@@ -1,0 +1,116 @@
+#!/bin/bash
+
+#THIS IS A NEW BASH CODE FOR AUTOMATICALLY GENERATE AN ISOTHERM
+#rm -r $d
+job=$(qstat -u zlc6394)
+#echo $job
+
+# COUNT THE NUMBER OF GREP
+count=$(echo "$job" | grep -c "quest  zlc6394")
+echo $count
+# CHECK IF THE JOB IS STILL RUNNING
+
+item=$(echo "$job" | grep "quest  zlc6394")
+#echo $item
+echo "$item" > printscr.txt
+file=printscr.txt
+# COUNT NUMBER OF LINES IN THIS item variable
+num=$(echo "$item" | wc -l)
+echo $num
+
+
+#count the number of jobs still on Quest
+while IFS='' read -r line || [[ -n "$line" ]]; do
+echo $line
+
+if [[ $line == *" R "* ]]; then 
+echo "Ahh it is still running!"
+fi
+
+# IF IT STOPS
+if [[ $line == *" C "* ]]; then
+echo "Ohh it is stopped!"
+# SEARCH FOR STRING "finished" in the output file
+#mv Output/System_0/ou* Output/System_0/outlet.txt
+#grep "Simulation finished" Output/System_0/outlet.txt
+#        if [[ $? != 0 ]]; then
+#        echo "ad" >> needrestart.txt
+#        fi
+
+fi
+
+done < "$file"
+
+
+# count the number of cif files in the cifdir
+# cd to cif directory
+cifdir=/projects/p30762/RASPA-2.0/share/raspa/structures/cif
+cd $cifdir
+cif_count=$(find . -maxdepth 1 -type f -name "*.cif" | wc -l)
+echo "THERE ARE THESE CIF FILES EXIST"
+echo $cif_count
+## THINK ABOUT SUBMITTING JOBS WHEN JOBS ON QUEST IS LESS THAN 500
+count=`echo "500 - $count" | bc`
+echo "YOU CAN STILL SUBMIT THESE AMOUNT OF JOBS"
+echo $count
+
+
+for ((i = 1; i <= $count; i++)); do
+# get the name of mof
+# if there are 8 simulations, get the 8 + i cif 
+proper_line=`echo "$cif_count + $i" | bc`
+line=$(sed "${proper_line}q;d" /home/zlc6394/results/tobacco_unitcells.txt)
+echo $line
+
+MOF_ID=$(echo "$line" | awk '{print $1}')
+# Get the unit cell size from the line
+unitcell_x=$(echo "$line" | awk '{print $2}')
+unitcell_y=$(echo "$line" | awk '{print $3}')
+unitcell_z=$(echo "$line" | awk '{print $4}')
+
+# copy the cif files from renamed tobacco to cifdir
+cp /home/zlc6394/renamed_tobacco/$MOF_ID.cif $cifdir
+# Cycles of runs
+cycles=3000
+# External Pressure of the system, with unit of bars
+pres=2
+# External Temperature, with unit of K
+temp=298
+# Molecule
+MY_MOLECULE='propane'
+
+#make a folder for the additional mof
+mkdir $MOF_ID
+cd $MOF_ID
+
+# Copy input file and submission file to that folder
+cp /home/zlc6394/input_and_job/simulation.input simulation.input
+cp /home/zlc6394/input_and_job/bsub.job bsub.job
+
+# Substitute unitcell lengths
+sed -i 's/.*UnitCells.*/UnitCells '$unitcell_x' '$unitcell_y' '$unitcell_z'/g' simulation.input
+# Substitute MOF_ID
+sed -i 's/.*FrameworkName.*/FrameworkName '$MOF_ID'/g' simulation.input
+# Substitute Pressure
+sed -i 's/.*ExternalPressure.*/ExternalPressure '$pres'.0e5/g' simulation.input
+# Substitute Temperature
+sed -i 's/.*ExternalTemperature.*/ExternalTemperature '$temp'/g' simulation.input
+# Substitute the molecule of our simulation
+sed -i 's/methane/'$MY_MOLECULE'/g' simulation.input
+# Substitute cycles, do it to both equil and production
+sed -i 's/.*NumberOfCycles.*/NumberOfCycles '$cycles'/g' simulation.input
+sed -i 's/.*NumberOfInitializationCycles.*/NumberOfInitializationCycles '$cycles'/g' simulation.input
+# Substitute bsub.job file
+sed -i 's/Whatever_methane/'$MY_MOLECULE'_'$MOF_ID'/g' bsub.job
+
+
+# FINALLY, submit the job
+
+msub bsub.job
+sleep 2
+
+# cd back 
+cd ..
+
+
+done
