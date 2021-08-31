@@ -1,0 +1,17 @@
+#!/bin/bash
+currenttime=$(date +%s%N)
+for d in */; do
+  cd $d
+  if [ -f slurm* ]; then
+    if ! grep -q "FINISH" slurm*; then
+      # check time
+      filetime=$(date +%s%N -r slurm*)
+      diff=$((currenttime-filetime))
+      ti=`echo "scale=8; (${diff}/24/3600/1000000000)" | bc` # in terms of days
+      if (( $(echo "$ti > 1" | bc -l) )); then # if file is older than 1 day
+        echo "$d need fixing, time is $ti" >> ../time_result.txt
+      fi
+    fi
+  fi
+  cd ../
+done
